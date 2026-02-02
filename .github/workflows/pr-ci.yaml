@@ -42,6 +42,10 @@ jobs:
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
+
           git add k8s/deployment.yaml
-          git commit -m "ci: deploy PR #${{ github.event.pull_request.number }}"
-          git push
+          git commit -m "ci: deploy PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
+
+          git push origin HEAD:${{ github.head_ref }}
+
+
