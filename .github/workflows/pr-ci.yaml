@@ -1,24 +1,17 @@
-name: PR Build & Deploy to k3d via Fleet
+name: PR Build Image
 
 on:
   pull_request:
     branches: [ main ]
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: lzhengqc/visualsubnetcalc
-
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-
     permissions:
-      contents: write
       packages: write
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Login to GHCR
         uses: docker/login-action@v3
@@ -27,21 +20,8 @@ jobs:
           username: lzhengqc
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build & Push Docker image
+      - name: Build & Push PR image
         run: |
           TAG=pr-${{ github.event.pull_request.number }}
           docker build -t ghcr.io/lzhengqc/visualsubnetcalc:$TAG .
           docker push ghcr.io/lzhengqc/visualsubnetcalc:$TAG
-          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
-
-      - name: Update Kubernetes manifest
-        run: |
-          sed -i "s|image: .*|image: ghcr.io/lzhengqc/visualsubnetcalc:${IMAGE_TAG}|g" k8s/deployment.yaml
-
-      - name: Commit GitOps change
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add k8s/deployment.yaml
-          git commit -m "ci: deploy PR #${{ github.event.pull_request.number }}"
-          git push
