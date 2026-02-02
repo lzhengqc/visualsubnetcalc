@@ -24,4 +24,7 @@ jobs:
         run: |
           TAG=pr-${{ github.event.pull_request.number }}
           docker build -t ghcr.io/lzhengqc/visualsubnetcalc:$TAG .
+          # add latest tag for testing purpose
+          docker tag ghcr.io/lzhengqc/visualsubnetcalc:$TAG ghcr.io/lzhengqc/visualsubnetcalc:latest
+          docker push ghcr.io/lzhengqc/visualsubnetcalc:latest
           docker push ghcr.io/lzhengqc/visualsubnetcalc:$TAG
