@@ -43,9 +43,16 @@ jobs:
           git config user.name "github-actions"
           git config user.email "actions@github.com"
 
+          # Fetch the real PR branch
+          git fetch origin ${{ github.head_ref }}
+
+          # Rebase CI changes on top of PR branch
+          git checkout -B ci-temp HEAD
+          git rebase origin/${{ github.head_ref }}
+
           git add k8s/deployment.yaml
           git commit -m "ci: deploy PR #${{ github.event.pull_request.number }}" || echo "No changes to commit"
 
-          git push origin HEAD:${{ github.head_ref }}
-
+          # Push safely back to PR branch
+          git push origin HEAD:${{ github.head_ref }} --force-with-lease
 
