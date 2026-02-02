@@ -1,4 +1,0 @@
-namespace: default
-
-kustomize:
-  dir: k8s

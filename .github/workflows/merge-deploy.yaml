@@ -1,0 +1,42 @@
+name: Deploy on Merge to Main
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout app repo
+        uses: actions/checkout@v4
+
+      - name: Set image tag
+        run: |
+          TAG=$(git rev-parse --short HEAD)
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
+
+      - name: Build & Push Release Image
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: ghcr.io/lzhengqc/visualsubnetcalc:${{ env.IMAGE_TAG }}
+
+      - name: Checkout GitOps repo
+        uses: actions/checkout@v4
+        with:
+          repository: lzhengqc/visualsubnetcalc-gitops
+          token: ${{ secrets.GITOPS_TOKEN }}
+          path: gitops
+
+      - name: Update GitOps deployment
+        run: |
+          sed -i "s|image: .*|image: ghcr.io/lzhengqc/visualsubnetcalc:${IMAGE_TAG}|g" \
+            gitops/k8s/deployment.yaml
+
+          cd gitops
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git commit -am "deploy: visualsubnetcalc ${IMAGE_TAG}"
+          git push
