@@ -99,6 +99,8 @@
             <div style="height:1.5rem"></div>
             <div>
                 <button id="btn_go" class="btn btn-success mb-0 mt-auto" type="button">Go</button>
+                <button id="btn_save_file" class="btn btn-outline-primary mb-0 ms-2 mt-auto" type="button">Save</button>
+                <button id="btn_load_file" class="btn btn-outline-secondary mb-0 ms-2 mt-auto" type="button">Load</button>
                 <div class="dropdown d-inline">
                     <button class="btn btn-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                         Tools
@@ -178,6 +180,9 @@
             </div>
         </div>
     </div>
+
+        <!-- Hidden file input for loading configurations -->
+        <input type="file" id="hiddenFileInput" style="display: none;" accept=".json" aria-label="Load configuration file">
 
     <div class="modal fade" id="importExportModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
