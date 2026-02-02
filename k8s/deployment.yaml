@@ -1,0 +1,19 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: visualsubnetcalc
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: visualsubnetcalc
+  template:
+    metadata:
+      labels:
+        app: visualsubnetcalc
+    spec:
+      containers:
+        - name: visualsubnetcalc
+          image: ghcr.io/lzhengqc/visualsubnetcalc:latest
+          ports:
+            - containerPort: 8080
