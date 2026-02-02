@@ -3,9 +3,11 @@ name: PR Build Image
 on:
   pull_request:
     branches: [ main ]
+  merge_group:
 
 jobs:
   build:
+    name: PR Build Image   # 👈 IMPORTANT
     runs-on: ubuntu-latest
     permissions:
       packages: write
