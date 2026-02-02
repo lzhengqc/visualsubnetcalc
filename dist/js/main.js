@@ -83,6 +83,7 @@ $('#calcbody').on('click', '.row_address, .row_range, .row_usable, .row_hosts, .
         // We could re-render here, but there is really no point, keep performant and just change the background color now
         //renderTable();
         $(this).closest('tr').css('background-color', inflightColor)
+        saveConfigToLocalStorage(exportConfig(false)); // Auto-save when color is set
     }
 })
 
@@ -144,6 +145,83 @@ $('#dropdown_oci').click(function() {
 $('#importBtn').on('click', function() {
     importConfig(JSON.parse($('#importExportArea').val()))
 })
+// Save configuration to a JSON file
+$('#btn_save_file').on('click', function(e) {
+    e.preventDefault();
+    const config = exportConfig(false);
+    const jsonString = JSON.stringify(config, null, 2);
+    
+    // Save to disk via API
+    fetch('/api/config/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: jsonString
+    }).catch(err => console.warn('API save failed (offline?), using local save:', err));
+    
+    // Also download file to user's computer
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `subnet-config-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    // Save to localStorage too
+    saveConfigToLocalStorage(config);
+})
+
+// Load configuration from a JSON file
+$('#btn_load_file').on('click', function(e) {
+    e.preventDefault();
+    $('#hiddenFileInput').click();
+})
+
+$('#hiddenFileInput').on('change', function(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        try {
+            const config = JSON.parse(event.target.result);
+            importConfig(config);
+            // Auto-save to localStorage after successful load
+            saveConfigToLocalStorage(config);
+            $('#input_form').removeClass('was-validated');
+            show_warning_modal('<div>Configuration loaded successfully!</div>');
+        } catch (error) {
+            show_warning_modal('<div>Error loading configuration file: ' + error.message + '</div>');
+        }
+    };
+    reader.readAsText(file);
+    // Reset the input so the same file can be loaded again
+    this.value = '';
+})
+
+// Save configuration to localStorage
+function saveConfigToLocalStorage(config) {
+    try {
+        localStorage.setItem('visualSubnetCalc_config', JSON.stringify(config));
+    } catch (e) {
+        console.warn('Failed to save configuration to localStorage:', e);
+    }
+}
+
+// Load configuration from localStorage
+function loadConfigFromLocalStorage() {
+    try {
+        const stored = localStorage.getItem('visualSubnetCalc_config');
+        if (stored) {
+            return JSON.parse(stored);
+        }
+    } catch (e) {
+        console.warn('Failed to load configuration from localStorage:', e);
+    }
+    return null;
+}
 
 $('#bottom_nav #colors_word_open').on('click', function() {
     $('#bottom_nav #color_palette').removeClass('d-none');
@@ -207,6 +285,8 @@ function reset() {
     }
     maxNetSize = parseInt($('#netsize').val())
     renderTable(operatingMode);
+        // Auto-save configuration to localStorage
+        saveConfigToLocalStorage(exportConfig(false));
 }
 
 function changeBaseNetwork(newBaseNetwork) {
@@ -228,6 +308,7 @@ $('#calcbody').on('click', 'td.split,td.join', function(event) {
     mutate_subnet_map(this.dataset.mutateVerb, this.dataset.subnet, '')
     this.dataset.subnet = sortIPCIDRs(this.dataset.subnet)
     renderTable(operatingMode);
+    saveConfigToLocalStorage(exportConfig(false));
 })
 
 $('#calcbody').on('keyup', 'td.note input', function(event) {
@@ -236,6 +317,7 @@ $('#calcbody').on('keyup', 'td.note input', function(event) {
     clearTimeout(noteTimeout);
     noteTimeout = setTimeout(function(element) {
         mutate_subnet_map('note', element.dataset.subnet, '', element.value)
+        saveConfigToLocalStorage(exportConfig(false));
     }, delay, this);
 })
 
@@ -243,6 +325,7 @@ $('#calcbody').on('focusout', 'td.note input', function(event) {
     // HTML DOM Data elements! Yay! See the `data-*` attributes of the HTML tags
     clearTimeout(noteTimeout);
     mutate_subnet_map('note', this.dataset.subnet, '', this.value)
+    saveConfigToLocalStorage(exportConfig(false));
 })
 
 
@@ -823,7 +906,32 @@ $( document ).ready(function() {
 
     let autoConfigResult = processConfigUrl();
     if (!autoConfigResult) {
-        reset();
+        // Try to auto-load from disk via API first (persistent across browser restarts)
+        fetch('/api/config/load')
+            .then(response => response.ok ? response.json() : null)
+            .then(diskConfig => {
+                if (diskConfig) {
+                    importConfig(diskConfig);
+                } else {
+                    // Fall back to localStorage
+                    const storedConfig = loadConfigFromLocalStorage();
+                    if (storedConfig) {
+                        importConfig(storedConfig);
+                    } else {
+                        reset();
+                    }
+                }
+            })
+            .catch(err => {
+                console.warn('API load failed (offline?), trying localStorage:', err);
+                // Fall back to localStorage if API fails
+                const storedConfig = loadConfigFromLocalStorage();
+                if (storedConfig) {
+                    importConfig(storedConfig);
+                } else {
+                    reset();
+                }
+            });
     }
 });
 
@@ -973,7 +1081,7 @@ function importConfig(text) {
     subnetMap = sortIPCIDRs(text['subnets']);
     operatingMode = text['operating_mode'] || 'Standard'
     switchMode(operatingMode);
-
+    renderTable(operatingMode);
 }
 
 function sortIPCIDRs(obj) {
