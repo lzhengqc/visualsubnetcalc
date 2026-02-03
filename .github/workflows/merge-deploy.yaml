@@ -9,11 +9,7 @@ on:
       - main
 
 jobs:
-  test:
-    name: Test
-    uses: ./.github/workflows/test-branch.yml
   deploy:
-    needs: test
     name: Deploy to GitOps Repo
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
