@@ -8,7 +8,6 @@ on:
 
 jobs:
   build:
-    needs: test
     name: PR Build Image   # 👈 IMPORTANT
     runs-on: ubuntu-latest
     permissions:
