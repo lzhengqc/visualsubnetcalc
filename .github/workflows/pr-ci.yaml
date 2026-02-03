@@ -11,6 +11,7 @@ jobs:
     name: Test
     uses: ./.github/workflows/test-branch.yml
   build:
+    needs: test
     name: PR Build Image   # 👈 IMPORTANT
     runs-on: ubuntu-latest
     permissions:
