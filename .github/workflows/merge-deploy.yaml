@@ -2,10 +2,16 @@ name: Deploy on PR Merge
 
 on:
   pull_request:
-    types: [closed]
-    branches: [ main ]
+    types:   
+      - closed
+    branches:
+      - develop
+      - main
 
 jobs:
+  test:
+    name: Test
+    uses: ./.github/workflows/test-branch.yml
   deploy:
     if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
