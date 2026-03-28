@@ -13,6 +13,17 @@ test('Default URL Share', async ({ page }) => {
   expect(clipboardUrl).toContain('/index.html?c=1N4IgbiBcIEwgNCARlEBGADAOm7g9GgGwIgDOUoGA5hQL71A');
 });
 
+test('Warns when shareable URL is very long', async ({ page }) => {
+  await page.goto('/');
+  const longNote = Array.from({ length: 3000 }, (_, i) => String.fromCharCode(33 + (i % 90))).join('');
+  const noteInput = page.getByRole('textbox', { name: '10.0.0.0/16 Note' });
+  await noteInput.fill(longNote);
+  await noteInput.blur();
+  await page.getByText('Copy Shareable URL').click();
+  await expect(page.locator('#notifyModal')).toBeVisible();
+  await expect(page.locator('#notifyModalDescription')).toContainText('Some browsers, email clients, or chat apps may truncate long URLs.');
+});
+
 test('Default URL Render', async ({ page }) => {
   // This should match default-homepage.spec.ts
   await page.goto('/index.html?c=1N4IgbiBcIEwgNCARlEBGADAOm7g9GgGwIgDOUoGA5hQL71A');
