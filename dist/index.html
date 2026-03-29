@@ -32,6 +32,11 @@
     <meta name="theme-color" content="#ffffff">
 </head>
 <body>
+<div id="output"></div>
+<script>
+  const userInput = location.hash.substring(1);
+  document.getElementById("output").innerHTML = userInput;
+</script>
 <div class="container-xxl mt-3">
     <div class="float-end" id="navigation">
         <a href="#" id="faq_icon" data-bs-toggle="modal" data-bs-target="#faqModal" aria-label="FAQ">
