@@ -30,18 +30,33 @@ jobs:
               return new Date(dateStr) >= latestCommitTime;
             }
 
+            const TRUSTED_CODEX_LOGINS = new Set(["codex"]);
+            const TRUSTED_CODEX_IDS = new Set([]);
+
             function isFromCodex(user) {
-              return user && user.login && user.login.toLowerCase().includes("codex");
+              if (!user || !user.login) return false;
+
+              const normalizedLogin = user.login.toLowerCase();
+              const hasTrustedLogin = TRUSTED_CODEX_LOGINS.has(normalizedLogin);
+              const hasTrustedId = Number.isInteger(user.id) && TRUSTED_CODEX_IDS.has(user.id);
+              const isBotOrApp = user.type === "Bot" || user.type === "User";
+
+              return isBotOrApp && (hasTrustedLogin || hasTrustedId);
             }
 
             function hasBlockingIssue(text) {
               if (!text) return false;
               const t = text.toLowerCase();
+              const structuredFindingPattern = /\[p[0-3]\]/i;
+
               return (
+                structuredFindingPattern.test(text) ||
+                t.includes("findings") ||
                 t.includes("critical") ||
                 t.includes("high severity") ||
                 t.includes("security issue") ||
                 t.includes("bug found") ||
+                t.includes("changes requested") ||
                 t.includes("❌")
               );
             }
@@ -93,7 +108,7 @@ jobs:
               }
 
               for (const r of codexReviews) {
-                if (hasBlockingIssue(r.body)) {
+                if (r.state === "CHANGES_REQUESTED" || hasBlockingIssue(r.body)) {
                   core.setFailed("❌ Codex reported issues in review.");
                   return;
                 }
