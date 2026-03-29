@@ -35,6 +35,7 @@ let previousOperatingMode = 'Standard'
 let inflightColor = 'NONE'
 let urlVersion = '1'
 let configVersion = '2'
+const maxShareableUrlLength = 2000
 
 const netsizePatterns = {
     Standard: '^([12]?[0-9]|3[0-2])$',
@@ -237,14 +238,24 @@ $('#bottom_nav #colors_word_close').on('click', function() {
 })
 
 $('#bottom_nav #copy_url').on('click', function() {
-    // TODO: Provide a warning here if the URL is longer than 2000 characters, probably using a modal.
     let url = window.location.origin + getConfigUrl()
-    navigator.clipboard.writeText(url);
-    $('#bottom_nav #copy_url span').text('Copied!')
-    // Swap the text back after 3sec
-    setTimeout(function(){
-        $('#bottom_nav #copy_url span').text('Copy Shareable URL')
-    }, 2000)
+    let lengthWarningMessage = ''
+    if (url.length > maxShareableUrlLength) {
+        lengthWarningMessage = '<div>Your shareable URL is ' + url.length + ' characters long. Some browsers, email clients, or chat apps may truncate long URLs.</div><div class="pt-2">Tip: Use Save/Load JSON for very large designs.</div>'
+    }
+
+    navigator.clipboard.writeText(url).then(() => {
+        $('#bottom_nav #copy_url span').text('Copied!')
+        // Swap the text back after 3sec
+        setTimeout(function(){
+            $('#bottom_nav #copy_url span').text('Copy Shareable URL')
+        }, 2000)
+        if (lengthWarningMessage !== '') {
+            show_warning_modal(lengthWarningMessage)
+        }
+    }).catch(() => {
+        show_warning_modal('<div>Failed to copy the shareable URL to your clipboard.</div><div class="pt-2">Use the URL below to share your current configuration:</div><textarea class="form-control mt-2" rows="3" readonly>' + url + '</textarea>')
+    });
 })
 
 $('#btn_import_export').on('click', function() {
