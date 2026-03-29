@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-test('Default Homepage Rendering', async ({ page }) => {
+test.only('Default Homepage Rendering', async ({ page }) => {
   await page.goto('/');
   await expect(page).toHaveTitle(/Visual Subnet Calculator/);
   await expect(page.getByRole('heading')).toContainText('Visual Subnet Calculator');
