@@ -15,7 +15,12 @@ test('Default URL Share', async ({ page }) => {
 
 test('Warns when shareable URL is very long', async ({ page }) => {
   await page.goto('/');
-  const longNote = Array.from({ length: 3000 }, (_, i) => String.fromCharCode(33 + (i % 90))).join('');
+  // Use deterministic pseudo-random data to avoid high compression and reliably exceed long-URL warning threshold.
+  let seed = 0x12345678;
+  const longNote = Array.from({ length: 3000 }, () => {
+    seed = (1664525 * seed + 1013904223) >>> 0;
+    return String.fromCharCode(33 + (seed % 94));
+  }).join('');
   const noteInput = page.getByRole('textbox', { name: '10.0.0.0/16 Note' });
   await noteInput.fill(longNote);
   await noteInput.blur();
