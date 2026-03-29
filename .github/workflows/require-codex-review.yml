@@ -1,122 +1,145 @@
-- name: Wait for Codex review and validate
-  uses: actions/github-script@v7
-  with:
-    github-token: ${{ secrets.GITHUB_TOKEN }}
-    script: |
-      const pr = context.payload.pull_request;
-      const prNumber = pr.number;
-      const latestCommitTime = new Date(pr.updated_at);
+name: Require Codex Review
 
-      const MAX_ATTEMPTS = 30;
-      const DELAY = 10000;
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
 
-      async function sleep(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-      }
+jobs:
+  codex-gate:
+    runs-on: ubuntu-latest
 
-      function isFromCodex(user) {
-        return user?.login?.toLowerCase().includes("codex");
-      }
+    steps:
+      - name: Wait for Codex review and validate
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr = context.payload.pull_request;
+            const prNumber = pr.number;
 
-      function isAfterLatestCommit(dateStr) {
-        return new Date(dateStr) >= latestCommitTime;
-      }
+            // Use PR updated time as proxy for latest commit
+            const latestCommitTime = new Date(pr.updated_at);
 
-      function hasBlockingIssue(text) {
-        if (!text) return false;
-        const t = text.toLowerCase();
-        return (
-          t.includes("critical") ||
-          t.includes("security") ||
-          t.includes("bug") ||
-          t.includes("❌")
-        );
-      }
+            const MAX_ATTEMPTS = 30; // ~5 minutes
+            const DELAY = 10000; // 10 seconds
 
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        console.log(`🔍 Attempt ${attempt}`);
+            async function sleep(ms) {
+              return new Promise(resolve => setTimeout(resolve, ms));
+            }
 
-        // ✅ Issue comments (paginated)
-        const comments = await github.paginate(
-          github.rest.issues.listComments,
-          {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: prNumber,
-          }
-        );
+            function isFromCodex(user) {
+              return user?.login?.toLowerCase().includes("codex");
+            }
 
-        // ✅ PR reviews
-        const reviews = await github.paginate(
-          github.rest.pulls.listReviews,
-          {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber,
-          }
-        );
+            function isAfterLatestCommit(dateStr) {
+              return new Date(dateStr) >= latestCommitTime;
+            }
 
-        // ✅ INLINE review comments (CRITICAL FIX)
-        const reviewComments = await github.paginate(
-          github.rest.pulls.listReviewComments,
-          {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            pull_number: prNumber,
-          }
-        );
+            function hasBlockingIssue(text) {
+              if (!text) return false;
+              const t = text.toLowerCase();
 
-        // ✅ Reactions
-        const reactions = await github.paginate(
-          github.rest.reactions.listForIssue,
-          {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: prNumber,
-          }
-        );
+              return (
+                t.includes("critical") ||
+                t.includes("high severity") ||
+                t.includes("security") ||
+                t.includes("bug") ||
+                t.includes("❌")
+              );
+            }
 
-        const codexComments = comments.filter(c =>
-          isFromCodex(c.user) && isAfterLatestCommit(c.created_at)
-        );
+            for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+              console.log(`🔍 Attempt ${attempt} checking Codex...`);
 
-        const codexReviews = reviews.filter(r =>
-          isFromCodex(r.user) && isAfterLatestCommit(r.submitted_at)
-        );
+              // ✅ Issue comments (paginated)
+              const comments = await github.paginate(
+                github.rest.issues.listComments,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                }
+              );
 
-        const codexInline = reviewComments.filter(c =>
-          isFromCodex(c.user) && isAfterLatestCommit(c.created_at)
-        );
+              // ✅ PR reviews (paginated)
+              const reviews = await github.paginate(
+                github.rest.pulls.listReviews,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                }
+              );
 
-        const codexThumbsup = reactions.find(r =>
-          isFromCodex(r.user) &&
-          r.content === "+1" &&
-          isAfterLatestCommit(r.created_at)
-        );
+              // ✅ Inline review comments (CRITICAL)
+              const reviewComments = await github.paginate(
+                github.rest.pulls.listReviewComments,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  pull_number: prNumber,
+                }
+              );
 
-        // 🔥 FAIL if any inline comment has issues
-        for (const c of [...codexComments, ...codexReviews, ...codexInline]) {
-          if (hasBlockingIssue(c.body)) {
-            core.setFailed("❌ Codex reported issues.");
-            return;
-          }
-        }
+              // ✅ Reactions (👍 case)
+              const reactions = await github.paginate(
+                github.rest.reactions.listForIssue,
+                {
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: prNumber,
+                }
+              );
 
-        // ✅ PASS if any Codex signal exists
-        if (
-          codexComments.length > 0 ||
-          codexReviews.length > 0 ||
-          codexInline.length > 0 ||
-          codexThumbsup
-        ) {
-          console.log("✅ Codex review detected.");
-          return;
-        }
+              const codexComments = comments.filter(c =>
+                isFromCodex(c.user) && isAfterLatestCommit(c.created_at)
+              );
 
-        if (attempt < MAX_ATTEMPTS) {
-          console.log("⏳ Waiting...");
-          await sleep(DELAY);
-        }
-      }
+              const codexReviews = reviews.filter(r =>
+                isFromCodex(r.user) && isAfterLatestCommit(r.submitted_at)
+              );
 
-      core.setFailed("❌ Codex did not respond in time.");
+              const codexInline = reviewComments.filter(c =>
+                isFromCodex(c.user) && isAfterLatestCommit(c.created_at)
+              );
+
+              const codexThumbsup = reactions.find(r =>
+                isFromCodex(r.user) &&
+                r.content === "+1" &&
+                isAfterLatestCommit(r.created_at)
+              );
+
+              // ❌ Fail immediately if Codex reported issues anywhere
+              const allCodexSignals = [
+                ...codexComments,
+                ...codexReviews,
+                ...codexInline,
+              ];
+
+              for (const item of allCodexSignals) {
+                if (hasBlockingIssue(item.body)) {
+                  core.setFailed("❌ Codex reported issues.");
+                  return;
+                }
+              }
+
+              // ✅ PASS if any Codex signal exists
+              if (
+                codexComments.length > 0 ||
+                codexReviews.length > 0 ||
+                codexInline.length > 0 ||
+                codexThumbsup
+              ) {
+                console.log("✅ Codex review passed.");
+                return;
+              }
+
+              // ⏳ wait and retry
+              if (attempt < MAX_ATTEMPTS) {
+                console.log("⏳ Waiting for Codex...");
+                await sleep(DELAY);
+              }
+            }
+
+            core.setFailed("❌ Codex did not respond within timeout.");
