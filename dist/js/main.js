@@ -254,7 +254,7 @@ $('#bottom_nav #copy_url').on('click', function() {
             show_warning_modal(lengthWarningMessage)
         }
     }).catch(() => {
-        show_warning_modal('<div>Failed to copy the shareable URL to your clipboard. Please copy it manually from your browser address bar.</div>')
+        show_warning_modal('<div>Failed to copy the shareable URL to your clipboard.</div><div class="pt-2">Use the URL below to share your current configuration:</div><textarea class="form-control mt-2" rows="3" readonly>' + url + '</textarea>')
     });
 })
 
